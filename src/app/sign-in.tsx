@@ -28,7 +28,7 @@ export default function SignInScreen() {
       <View style={styles.card}>
         <Text style={styles.eyebrow}>BEAMOTION</Text>
         <Text style={styles.title}>Acceso al panel</Text>
-        <Text style={styles.description}>Entra con tu cuenta de administración de Lovable.</Text>
+        <Text style={styles.description}>Entra con tu cuenta de Lovable. Los entrenamientos requieren además una cuenta en el Supabase de BeaMotion.</Text>
         <TextInput
           autoCapitalize="none"
           autoComplete="email"

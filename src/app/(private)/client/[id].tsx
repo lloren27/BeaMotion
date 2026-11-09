@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getClientOverview, type ClientOverview } from '@/services/clients-integration/client-data';
+import { ClientTrainingSection } from '@/features/training-plans/ClientTrainingSection';
 
 function formatDate(value?: string | null) {
   if (!value) return 'Sin fecha';
@@ -81,6 +82,8 @@ export default function ClientScreen() {
             <Text key={`${session.starts_at}-${index}`} style={styles.line}>{formatDate(session.starts_at)} · {session.training_type}</Text>
           )) : <Text style={styles.muted}>Sin reservas esta semana.</Text>}
         </Section>
+
+        <ClientTrainingSection clientId={client.id} bonos={overview.bonos} />
 
         <Section title="Bonos activos">
           {bonos.length ? bonos.map((bono) => (

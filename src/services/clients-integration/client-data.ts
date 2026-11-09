@@ -14,9 +14,20 @@ export type ClientPage = {
   next_offset: number | null;
 };
 
+export type ClientBono = {
+  id: string;
+  status: string;
+  service_month: string;
+  sessions_total: number;
+  sessions_used: number;
+  training_type: string;
+  payment_validated_at: string | null;
+};
+
 export type ClientOverview = {
   client: ClientSummary & { birth_date: string | null; age: number | null; sex: string | null };
-  active_bonos: Array<{ id: string; status: string; service_month: string; sessions_total: number; sessions_used: number; training_type: string }>;
+  active_bonos: ClientBono[];
+  bonos: ClientBono[];
   this_week: { starts_on: string; count: number; sessions: Array<{ starts_at: string; training_type: string }> };
   latest_form: {
     lesiones: string | null;
