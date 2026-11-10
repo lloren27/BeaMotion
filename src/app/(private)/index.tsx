@@ -1,33 +1,59 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, type Href } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { searchAllClientPages } from '@/domain/rules/client-search';
 import { SectionMenu } from '@/features/navigation/SectionMenu';
 import { listClients, type ClientListItem } from '@/services/clients-integration/client-data';
 
 export default function ClientsScreen() {
   const [clients, setClients] = useState<ClientListItem[]>([]);
-  const [nextOffset, setNextOffset] = useState<number | null>(0);
-  const [loading, setLoading] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const loadingMore = useRef(false);
 
-  async function load(offset: number) {
-    if (loading) return;
+  async function load(offset: number, term: string, version: number) {
+    if (offset > 0 && loadingMore.current) return;
+    if (offset > 0) loadingMore.current = true;
     setLoading(true);
     setError(null);
     try {
-      const page = await listClients(50, offset);
-      setClients((current) => offset === 0 ? page.clients : [...current, ...page.clients]);
-      setNextOffset(page.next_offset);
+      if (term.trim()) {
+        const matches = await searchAllClientPages((pageOffset) => listClients(50, pageOffset), term, () => version === requestVersion.current);
+        if (version !== requestVersion.current) return;
+        setClients(matches);
+        setNextOffset(null);
+      } else {
+        const page = await listClients(50, offset);
+        if (version !== requestVersion.current) return;
+        setClients((current) => offset === 0 ? page.clients : [...current, ...page.clients]);
+        setNextOffset(page.next_offset);
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo cargar la lista.');
+      if (version === requestVersion.current) setError(cause instanceof Error ? cause.message : 'No se pudo cargar la lista.');
     } finally {
-      setLoading(false);
+      if (offset > 0) loadingMore.current = false;
+      if (version === requestVersion.current) setLoading(false);
     }
   }
 
-  useEffect(() => { void load(0); }, []);
+  useEffect(() => {
+    const version = ++requestVersion.current;
+    setClients([]);
+    setNextOffset(null);
+    setLoading(true);
+    const timer = setTimeout(() => void load(0, query, version), query.trim() ? 300 : 0);
+    return () => { clearTimeout(timer); ++requestVersion.current; };
+  }, [query]);
+
+  function refresh() {
+    const version = ++requestVersion.current;
+    void load(0, query, version);
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -38,7 +64,17 @@ export default function ClientsScreen() {
         </View>
         <SectionMenu current="Clientes" />
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <TextInput
+        accessibilityLabel="Buscar clientes por nombre o apellidos"
+        autoCapitalize="none"
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+        onChangeText={(value) => { ++requestVersion.current; setQuery(value); }}
+        placeholder="Buscar por nombre o apellidos"
+        style={styles.search}
+        value={query}
+      />
+      {error ? <View><Text style={styles.error}>{error}</Text><Pressable onPress={refresh}><Text style={[styles.link, styles.retry]}>Reintentar</Text></Pressable></View> : null}
       <FlatList
         data={clients}
         keyExtractor={(item) => item.id}
@@ -58,14 +94,14 @@ export default function ClientsScreen() {
             </View>
           </Pressable>
         )}
-        ListEmptyComponent={!loading ? <Text style={styles.secondary}>No hay clientas disponibles.</Text> : undefined}
+        ListEmptyComponent={!loading && !error ? <Text style={styles.secondary}>{query.trim() ? 'No se encontraron clientes.' : 'No hay clientas disponibles.'}</Text> : undefined}
         ListFooterComponent={
           loading ? <ActivityIndicator style={styles.footer} /> : nextOffset !== null && clients.length > 0
-            ? <Pressable onPress={() => void load(nextOffset)} style={styles.more}><Text style={styles.link}>Cargar más</Text></Pressable>
+            ? <Pressable onPress={() => void load(nextOffset, query, requestVersion.current)} style={styles.more}><Text style={styles.link}>Cargar más</Text></Pressable>
             : undefined
         }
         refreshing={loading && clients.length > 0}
-        onRefresh={() => void load(0)}
+        onRefresh={refresh}
       />
     </SafeAreaView>
   );
@@ -78,6 +114,8 @@ const styles = StyleSheet.create({
   title: { color: '#182321', fontSize: 30, fontWeight: '700', marginTop: 6 },
   link: { color: '#436b63', fontSize: 16, fontWeight: '700' },
   error: { color: '#a43d3d', marginHorizontal: 24, marginBottom: 12 },
+  retry: { marginHorizontal: 24, marginBottom: 12 },
+  search: { marginHorizontal: 24, marginBottom: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccd6d1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
   list: { paddingHorizontal: 24, paddingBottom: 32 },
   row: { backgroundColor: '#fff', padding: 18, borderRadius: 10, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   name: { color: '#182321', fontSize: 17, fontWeight: '600', flex: 1 },
