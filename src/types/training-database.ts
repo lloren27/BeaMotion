@@ -11,6 +11,11 @@ type TrainingModelCode = 'A' | 'B' | 'C';
 export type TrainingDatabase = {
   public: {
     Tables: {
+      exercise_catalog: Table<
+        { id: string; name: string; description: string; patterns: string[]; laterality: string[]; positions: string[]; actions: string[]; band_color: string; weight_kg: number | null; action_time: string; notes: string; archived: boolean; created_at: string },
+        { id?: string; name: string; description?: string; patterns?: string[]; laterality?: string[]; positions?: string[]; actions?: string[]; band_color?: string; weight_kg?: number | null; action_time?: string; notes?: string; archived?: boolean },
+        { name?: string; description?: string; patterns?: string[]; laterality?: string[]; positions?: string[]; actions?: string[]; band_color?: string; weight_kg?: number | null; action_time?: string; notes?: string; archived?: boolean }
+      >;
       training_monthly_plans: Table<
         { id: string; client_id: string; period_month: string; session_count: number; created_at: string },
         { id?: string; client_id: string; period_month: string; session_count: number; created_at?: string },
@@ -34,6 +39,10 @@ export type TrainingDatabase = {
     };
     Views: Record<string, never>;
     Functions: {
+      add_catalog_exercise_to_session: {
+        Args: { p_session_id: string; p_position: number; p_catalog_id: string };
+        Returns: string;
+      };
       create_training_monthly_plan: {
         Args: { p_client_id: string; p_period_month: string; p_session_count: number };
         Returns: string;

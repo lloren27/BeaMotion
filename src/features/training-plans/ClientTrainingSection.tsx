@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { ExercisePicker } from '@/features/exercises/ExercisePicker';
+import { addCatalogExerciseToSession } from '@/services/exercises/exercise-data';
 
 import { getMadridDate, getMadridMonth, shiftMonth, type PlanSize } from '@/domain/rules/training-plan';
 import { getAttendedBookingsForMonth } from '@/services/clients-integration/attendance-data';
@@ -37,6 +39,7 @@ function completedDate(date: string) {
 export function ClientTrainingSection({ clientId, bonos }: { clientId: string; bonos: ClientBono[] }) {
   const { trainingStatus } = useSession();
   const [month, setMonth] = useState(getMadridMonth());
+  const [pickerSessionId, setPickerSessionId] = useState<string | null>(null);
   const [plan, setPlan] = useState<MonthlyTrainingPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -241,6 +244,9 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
                   onAddSet={() => void addSet(exercise.id, exercise.sets.length)}
                 />
               ))}
+              {pickerSessionId === session.id ? <ExercisePicker busy={busy} onClose={() => setPickerSessionId(null)} onChoose={(item) => {
+                void run(async () => { await addCatalogExerciseToSession(session.id, session.exercises.length, item.id); setPickerSessionId(null); });
+              }} /> : <Pressable disabled={busy} onPress={() => setPickerSessionId(session.id)} style={styles.addButton}><Text style={styles.link}>+ Elegir de la biblioteca</Text></Pressable>}
               <Pressable disabled={busy} onPress={() => void addExercise(session.id, session.exercises.length)} style={styles.addButton}>
                 <Text style={styles.link}>+ Añadir ejercicio</Text>
               </Pressable>
@@ -262,10 +268,12 @@ function ExerciseEditor({
   onAddSet: () => void;
 }) {
   function updateSet(setId: string, field: keyof TrainingSet, value: string) {
-    onChange((current) => ({ ...current, sets: current.sets.map((set) => set.id === setId ? {
-      ...set,
-      [field]: field === 'series_count' ? (value ? Number(value) || null : null) : value || null,
-    } : set) }));
+    onChange((current) => ({
+      ...current, sets: current.sets.map((set) => set.id === setId ? {
+        ...set,
+        [field]: field === 'series_count' ? (value ? Number(value) || null : null) : value || null,
+      } : set)
+    }));
   }
 
   return (
@@ -311,7 +319,7 @@ function ExerciseEditor({
       ))}
       <View style={styles.exerciseActions}>
         <Pressable disabled={busy} onPress={onAddSet}><Text style={styles.link}>+ Añadir línea de series</Text></Pressable>
-        <Pressable disabled={busy} onPress={onSave} style={styles.saveButton}><Text style={styles.saveText}>Guardar ejercicio</Text></Pressable>
+        <Pressable disabled={busy} onPress={onSave} style={styles.saveButton}><Text style={styles.saveText}>Guardar</Text></Pressable>
       </View>
     </View>
   );

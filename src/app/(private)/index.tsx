@@ -3,11 +3,10 @@ import { router, type Href } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SectionMenu } from '@/features/navigation/SectionMenu';
 import { listClients, type ClientListItem } from '@/services/clients-integration/client-data';
-import { useSession } from '@/services/supabase/session';
 
 export default function ClientsScreen() {
-  const { signOut } = useSession();
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [nextOffset, setNextOffset] = useState<number | null>(0);
   const [loading, setLoading] = useState(false);
@@ -37,7 +36,7 @@ export default function ClientsScreen() {
           <Text style={styles.eyebrow}>BEAMOTION</Text>
           <Text style={styles.title}>Clientas</Text>
         </View>
-        <Pressable onPress={() => void signOut()}><Text style={styles.link}>Salir</Text></Pressable>
+        <SectionMenu current="Clientes" />
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
@@ -74,7 +73,7 @@ export default function ClientsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f7f8fa' },
-  header: { padding: 24, paddingTop: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: { padding: 24, paddingTop: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 },
   eyebrow: { color: '#436b63', fontSize: 13, fontWeight: '700', letterSpacing: 2 },
   title: { color: '#182321', fontSize: 30, fontWeight: '700', marginTop: 6 },
   link: { color: '#436b63', fontSize: 16, fontWeight: '700' },
