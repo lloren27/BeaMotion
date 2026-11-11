@@ -1,3 +1,5 @@
+type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 type Table<Row, Insert, Update> = {
   Row: Row;
   Insert: Insert;
@@ -11,6 +13,16 @@ type TrainingModelCode = 'A' | 'B' | 'C';
 export type TrainingDatabase = {
   public: {
     Tables: {
+      monthly_training_models: Table<
+        { id: string; period_month: string; model_code: TrainingModelCode; draft: Json; revision: number; week_number: number; inherits_base: boolean },
+        { id?: string; period_month: string; model_code: TrainingModelCode; draft?: Json; revision?: number; week_number?: number; inherits_base?: boolean },
+        { draft?: Json; revision?: number; week_number?: number; inherits_base?: boolean }
+      >;
+      monthly_model_versions: Table<
+        { id: string; model_id: string; version_number: number; snapshot: Json; published_at: string },
+        { id?: string; model_id: string; version_number: number; snapshot: Json; published_at?: string },
+        never
+      >;
       exercise_catalog: Table<
         { id: string; name: string; description: string; patterns: string[]; laterality: string[]; positions: string[]; actions: string[]; band_color: string; weight_kg: number | null; action_time: string; notes: string; archived: boolean; created_at: string },
         { id?: string; name: string; description?: string; patterns?: string[]; laterality?: string[]; positions?: string[]; actions?: string[]; band_color?: string; weight_kg?: number | null; action_time?: string; notes?: string; archived?: boolean },
@@ -39,6 +51,10 @@ export type TrainingDatabase = {
     };
     Views: Record<string, never>;
     Functions: {
+      restore_week_from_base: { Args: { p_id: string; p_revision: number }; Returns: number };
+      create_monthly_models: { Args: { p_month: string; p_copy_previous: boolean }; Returns: undefined };
+      save_monthly_model_draft: { Args: { p_id: string; p_revision: number; p_draft: Json }; Returns: number };
+      publish_monthly_model: { Args: { p_id: string; p_revision: number }; Returns: number };
       add_catalog_exercise_to_session: {
         Args: { p_session_id: string; p_position: number; p_catalog_id: string };
         Returns: string;

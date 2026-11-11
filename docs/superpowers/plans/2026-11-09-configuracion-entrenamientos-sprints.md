@@ -78,6 +78,9 @@ Cada sprint termina con una demostración usando datos de prueba y un registro d
 
 ### Sprint 2. Preparación mensual de A, B y C
 
+**Ampliación acordada:** semanas de lunes a domingo recortadas al mes; A/B/C de la primera semana como base. Las semanas posteriores heredan automáticamente hasta personalizarlas. Una semana personalizada conserva sus cambios y puede volver a la base con confirmación expresa; las versiones publicadas no cambian. Al copiar el mes anterior se copia su primera semana como base del nuevo mes.
+
+
 **Entrega:** abrir un mes, preparar sus tres modelos y dejar una versión lista para asignar.
 
 - [ ] Crear editor mensual con dos opciones: copiar el mes anterior o empezar vacío manteniendo la estructura A/B/C. No inventar los ejercicios iniciales: el PDF define patrones, no una lista concreta.

@@ -6,6 +6,7 @@ import { useSession } from '@/services/supabase/session';
 const sections: { label: string; route: Href }[] = [
   { label: 'Clientes', route: '/' as Href },
   { label: 'Ejercicios', route: '/exercises' as Href },
+  { label: 'Modelos mensuales', route: '/training-models' as Href },
 ];
 
 export function SectionMenu({ current }: { current: string }) {

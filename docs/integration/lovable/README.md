@@ -73,3 +73,26 @@ fichas; en una sesión, usar **Elegir de la biblioteca**. La copia queda guardad
 en la sesión aunque se edite o archive la ficha de catálogo. El ejercicio libre
 sigue disponible. La instancia Supabase propia y una cuenta administradora deben
 estar configuradas antes de probar el guardado.
+
+## Modelos mensuales
+
+Para habilitar la preparación de modelos A, B y C, aplicar en el Supabase propio
+de entrenamientos la migración incremental
+`supabase/migrations/202611100001_monthly_models.sql`, después de las migraciones
+anteriores. No ejecutar en Lovable. La pantalla «Modelos mensuales» permite
+crear el mes desde cero o copiar los borradores del mes anterior, editar y
+publicar versiones. Los modelos todavía no se asignan a clientas: esa función
+pertenece al sprint 3.
+
+### Semanas del mes
+
+Aplicar también `supabase/migrations/202611100002_weekly_models.sql`, después
+de `202611100001_monthly_models.sql`. Si ya se había aplicado la primera,
+ejecutar únicamente la segunda. La migración conserva los modelos y versiones
+existentes como primera semana y crea las semanas restantes heredando su base.
+
+Las semanas van de lunes a domingo y se recortan a los días del mes. Las
+semanas posteriores heredan su modelo de la primera mientras no se editen;
+al personalizar una se conserva independiente. «Actualizar desde la semana 1»
+pide confirmación, sustituye el borrador y reactiva la herencia; las versiones
+publicadas no se cambian. Al copiar un mes anterior se usa su primera semana.
