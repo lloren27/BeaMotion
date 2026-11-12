@@ -4,8 +4,8 @@ import { SymbolView } from 'expo-symbols';
 import { ExercisePicker } from '@/features/exercises/ExercisePicker';
 import { addCatalogExerciseToSession } from '@/services/exercises/exercise-data';
 
+import { getMonthWeeks } from '@/domain/rules/month-weeks';
 import { getMadridDate, getMadridMonth, shiftMonth, type PlanSize } from '@/domain/rules/training-plan';
-import { getAttendedBookingsForMonth } from '@/services/clients-integration/attendance-data';
 import type { ClientBono } from '@/services/clients-integration/client-data';
 import { useSession } from '@/services/supabase/session';
 import {
@@ -15,13 +15,14 @@ import {
   getMonthlyTrainingPlan,
   saveTrainingExercise,
   updateTrainingSession,
-  updateTrainingSessionDate,
+  syncClientBookings,
   type MonthlyTrainingPlan,
   type NotCompletedReason,
   type SessionStatus,
   type TrainingExercise,
   type TrainingSet,
 } from '@/services/training-plans/training-data';
+import { colors, borderRadius, spacing } from '@/theme/colors';
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -60,46 +61,21 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
     const version = ++loadVersion.current;
     setLoading(true);
     setError(null);
-    setPlan(null);
     setConfirmedSessionIds([]);
     try {
-      let nextPlan = await getMonthlyTrainingPlan(clientId, month);
-      if (version !== loadVersion.current) return;
-      if (!nextPlan && month === getMadridMonth() && planSize) {
-        await createMonthlyTrainingPlan(clientId, month, planSize);
-        if (version !== loadVersion.current) return;
-        nextPlan = await getMonthlyTrainingPlan(clientId, month);
-        if (!nextPlan) throw new Error('No se pudo cargar el plan generado.');
+      let syncMessage: string | null = null;
+      try {
+        const report = await syncClientBookings(clientId, month);
+        if (report.excluded.length) syncMessage = report.excluded.map((item) => item.reason).join('. ');
+      } catch (cause) {
+        syncMessage = `No se actualizaron las reservas: ${cause instanceof Error ? cause.message : 'Vuelve a intentarlo.'}`;
       }
+      if (version !== loadVersion.current) return;
+      const nextPlan = await getMonthlyTrainingPlan(clientId, month);
       if (version !== loadVersion.current) return;
       setPlan(nextPlan);
-      if (nextPlan && activeBono && month === getMadridMonth() && nextPlan.session_count === activeBono.sessions_total) {
-        const attended = await getAttendedBookingsForMonth(clientId, activeBono.id, month);
-        if (version !== loadVersion.current) return;
-        const orderedSessions = nextPlan.sessions.filter((session) => session.status !== 'not_completed');
-        const confirmed = orderedSessions.slice(0, attended.length);
-        let changed = false;
-        for (const [index, session] of confirmed.entries()) {
-          if (version !== loadVersion.current) return;
-          if (session.status !== 'completed') {
-            await updateTrainingSession(session.id, { status: 'completed', sessionDate: attended[index].sessionDate });
-            changed = true;
-          } else if (session.session_date !== attended[index].sessionDate) {
-            await updateTrainingSessionDate(session.id, attended[index].sessionDate);
-            changed = true;
-          }
-        }
-        if (version !== loadVersion.current) return;
-        setConfirmedSessionIds(confirmed.map((session) => session.id));
-        if (changed) {
-          const refreshed = await getMonthlyTrainingPlan(clientId, month);
-          if (version !== loadVersion.current) return;
-          setPlan(refreshed);
-        }
-        if (attended.length > orderedSessions.length) {
-          setError('Hay más asistencias confirmadas que sesiones disponibles en el plan.');
-        }
-      }
+      setConfirmedSessionIds(nextPlan?.sessions.filter((session) => session.attendance_confirmed && session.status === 'completed').map((session) => session.id) ?? []);
+      if (syncMessage) setError(syncMessage);
     } catch (cause) {
       if (version === loadVersion.current) {
         setError(cause instanceof Error ? cause.message : 'No se pudo cargar el plan de entrenamientos.');
@@ -157,7 +133,8 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
   }
 
   async function saveExercise(exercise: TrainingExercise) {
-    await run(() => saveTrainingExercise(exercise));
+    const session = plan?.sessions.find((item) => item.exercises.some((entry) => entry.id === exercise.id));
+    if (session) await run(() => saveTrainingExercise(session.id, session.revision, exercise));
   }
 
   if (trainingStatus !== 'ready') {
@@ -181,13 +158,13 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
           <Text style={styles.link}>›</Text>
         </Pressable>
       </View>
-      {plan && month === getMadridMonth() ? (
-        <Pressable disabled={busy || loading} onPress={() => void reload()}><Text style={styles.link}>Actualizar asistencias</Text></Pressable>
+      {plan && plan.period_month === month ? (
+        <Pressable disabled={busy || loading} onPress={() => void reload()}><Text style={styles.link}>Actualizar reservas y ejercicios</Text></Pressable>
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {error && !loading ? <Pressable onPress={() => void reload()}><Text style={styles.link}>Reintentar</Text></Pressable> : null}
-      {loading ? <ActivityIndicator color="#436b63" /> : null}
+      {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {!loading && !plan && !error ? (
         <>
           {activeBonos.length > 1 ? <Text style={styles.error}>Hay varios bonos activos para este mes. Revisa los bonos en Lovable antes de generar el plan.</Text> : null}
@@ -202,7 +179,7 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
         </>
       ) : null}
 
-      {!loading && plan ? (
+      {!loading && plan && plan.period_month === month ? (
         <>
           <Text style={styles.muted}>{plan.session_count} sesiones este mes</Text>
           {activeBono && plan.session_count !== activeBono.sessions_total ? (
@@ -212,24 +189,26 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
             <View key={session.id} style={[styles.session, session.status === 'completed' ? styles.completed : session.status === 'not_completed' ? session.not_completed_reason === 'changed' ? styles.changed : styles.notCompleted : styles.pending]}>
               <View>
                 <Text style={styles.sessionTitle}>Sesión {session.session_number} · Modelo {session.model_code}</Text>
+                <Text style={styles.muted}>{session.scheduled_date ? `Semana ${getMonthWeeks(month).find((week) => session.scheduled_date! >= week.start && session.scheduled_date! <= week.end)?.number ?? '—'} · ${completedDate(session.scheduled_date)}` : 'Sin reserva asignada'}</Text>
+                <Text style={styles.muted}>{session.personalized ? 'Personalizada · se conserva al publicar' : session.source_version_id ? 'Ejercicios del modelo publicado' : 'Contenido pendiente de preparar'}</Text>
                 <Text style={styles.statusText}>{session.status === 'completed' ? `Realizada${session.session_date ? ` · ${completedDate(session.session_date)}` : ''}` : session.status === 'not_completed' ? `No realizada · ${session.not_completed_reason === 'cancelled' ? 'cancelación' : 'cambio de fecha'}` : 'Pendiente'}</Text>
               </View>
               <View style={styles.statusActions}>
                 <Pressable accessibilityLabel="Marcar como realizada" accessibilityRole="button" disabled={busy || session.status === 'completed'} onPress={() => void markSession(session.id, 'completed')} style={styles.statusButton}>
-                  <SymbolView name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }} size={25} tintColor="#2f8a51" />
+                  <SymbolView name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }} size={25} tintColor={colors.success} />
                 </Pressable>
                 {session.status !== 'pending' && !confirmedSessionIds.includes(session.id) ? (
                   <Pressable accessibilityLabel="Marcar como pendiente" accessibilityRole="button" disabled={busy} onPress={() => void markSession(session.id, 'pending')} style={styles.statusButton}>
-                    <SymbolView name={{ ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }} size={24} tintColor="#66716f" />
+                    <SymbolView name={{ ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }} size={24} tintColor={colors.textMuted} />
                   </Pressable>
                 ) : null}
                 {session.status !== 'completed' && !confirmedSessionIds.includes(session.id) ? (
                   <>
                     <Pressable accessibilityLabel="Marcar como cancelada" accessibilityRole="button" disabled={busy} onPress={() => void markSession(session.id, 'not_completed', 'cancelled')} style={styles.statusButton}>
-                      <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }} size={25} tintColor="#c43e3e" />
+                      <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }} size={25} tintColor={colors.destructive} />
                     </Pressable>
                     <Pressable accessibilityLabel="Marcar como cambio de fecha" accessibilityRole="button" disabled={busy} onPress={() => void markSession(session.id, 'not_completed', 'changed')} style={styles.statusButton}>
-                      <SymbolView name={{ ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' }} size={25} tintColor="#66716f" />
+                      <SymbolView name={{ ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' }} size={25} tintColor={colors.textMuted} />
                     </Pressable>
                   </>
                 ) : null}
@@ -293,10 +272,14 @@ function ExerciseEditor({
         style={[styles.input, styles.multiline]}
         value={exercise.notes ?? ''}
       />
+      {exercise.patterns.length ? <Text style={styles.muted}>{exercise.patterns.join(' · ')}</Text> : null}
+      <Field label="Material" value={exercise.material ?? ''} onChange={(material) => onChange((current) => ({ ...current, material: material || null }))} />
+      <Field label="Progresión / regresión" value={exercise.adaptation ?? ''} onChange={(adaptation) => onChange((current) => ({ ...current, adaptation: adaptation || null }))} />
       {exercise.sets.map((set) => (
         <View key={set.id} style={styles.setCard}>
           <View style={styles.setFields}>
-            <Field label="Series" value={set.series_count?.toString() ?? ''} onChange={(value) => updateSet(set.id, 'series_count', value)} keyboardType="number-pad" />
+            <Field label="Series" value={set.planned_series ?? set.series_count?.toString() ?? ''} onChange={(value) => updateSet(set.id, 'planned_series', value)} />
+            <Field label="Duración" value={set.duration ?? ''} onChange={(value) => updateSet(set.id, 'duration', value)} />
             <Field label="Repeticiones" value={set.repetitions ?? ''} onChange={(value) => updateSet(set.id, 'repetitions', value)} />
             <Field label="Descanso" value={set.rest ?? ''} onChange={(value) => updateSet(set.id, 'rest', value)} />
             <Field label="Peso / carga" value={set.load ?? ''} onChange={(value) => updateSet(set.id, 'load', value)} />
@@ -335,37 +318,37 @@ function Field({ label, value, onChange, keyboardType }: { label: string; value:
 }
 
 const styles = StyleSheet.create({
-  section: { backgroundColor: '#fff', padding: 18, borderRadius: 10, gap: 12 },
-  heading: { color: '#182321', fontSize: 18, fontWeight: '700' },
+  section: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: borderRadius.md, gap: spacing.md },
+  heading: { color: colors.textPrimary, fontSize: 18, fontWeight: '700' },
   monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  monthButton: { paddingHorizontal: 16, paddingVertical: 4 },
-  monthTitle: { color: '#33423e', fontSize: 16, fontWeight: '700', textTransform: 'capitalize' },
-  choice: { padding: 12, borderColor: '#dfe7e3', borderWidth: 1, borderRadius: 8, gap: 3 },
-  choiceTitle: { color: '#182321', fontWeight: '700' },
-  choiceText: { color: '#53615e', fontSize: 13 },
-  muted: { color: '#53615e', fontSize: 14 },
-  error: { color: '#a43d3d', fontSize: 14 },
-  link: { color: '#436b63', fontSize: 14, fontWeight: '700' },
-  session: { padding: 14, borderRadius: 9, gap: 10, borderWidth: 1 },
-  pending: { backgroundColor: '#f0f1f2', borderColor: '#dedfe1' },
-  completed: { backgroundColor: '#e5f3e9', borderColor: '#b8d9c0' },
-  notCompleted: { backgroundColor: '#fae8e7', borderColor: '#e5c1bf' },
-  changed: { backgroundColor: '#f0f1f2', borderColor: '#dedfe1' },
-  sessionTitle: { color: '#182321', fontSize: 15, fontWeight: '700' },
-  statusText: { color: '#53615e', fontSize: 13, marginTop: 3 },
-  statusActions: { flexDirection: 'row', alignSelf: 'flex-start', gap: 8 },
-  statusButton: { backgroundColor: '#fff', paddingHorizontal: 9, paddingVertical: 7, borderRadius: 7 },
-  exercise: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8e5', padding: 10, gap: 8 },
-  input: { backgroundColor: '#fff', borderColor: '#d8dfdc', borderWidth: 1, borderRadius: 7, padding: 10, color: '#182321', fontSize: 14 },
+  monthButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.xs },
+  monthTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '700', textTransform: 'capitalize' },
+  choice: { padding: spacing.md, borderColor: colors.borderLight, borderWidth: 1, borderRadius: borderRadius.sm, gap: spacing.xs },
+  choiceTitle: { color: colors.textPrimary, fontWeight: '700' },
+  choiceText: { color: colors.textSecondary, fontSize: 13 },
+  muted: { color: colors.textSecondary, fontSize: 14 },
+  error: { color: colors.error, fontSize: 14 },
+  link: { color: colors.brand, fontSize: 14, fontWeight: '700' },
+  session: { padding: spacing.md, borderRadius: borderRadius.sm, gap: spacing.sm, borderWidth: 1 },
+  pending: { backgroundColor: colors.muted, borderColor: colors.border },
+  completed: { backgroundColor: colors.successBg, borderColor: colors.successBorder },
+  notCompleted: { backgroundColor: colors.destructiveBg, borderColor: colors.destructiveBorder },
+  changed: { backgroundColor: colors.muted, borderColor: colors.border },
+  sessionTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  statusText: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
+  statusActions: { flexDirection: 'row', alignSelf: 'flex-start', gap: spacing.sm },
+  statusButton: { backgroundColor: colors.card, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: spacing.sm },
+  exercise: { backgroundColor: colors.card, borderRadius: borderRadius.sm, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.sm, gap: spacing.sm },
+  input: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: spacing.sm, padding: spacing.sm, color: colors.textPrimary, fontSize: 14 },
   multiline: { minHeight: 60, textAlignVertical: 'top' },
-  setCard: { gap: 8, paddingTop: 8, borderTopColor: '#e4e9e6', borderTopWidth: 1 },
-  setFields: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  field: { minWidth: '45%', flexGrow: 1, gap: 4 },
-  fieldLabel: { color: '#53615e', fontSize: 11 },
-  fieldInput: { backgroundColor: '#f8faf9', borderColor: '#d8dfdc', borderWidth: 1, borderRadius: 6, padding: 8, color: '#182321', fontSize: 14 },
-  actualLabel: { color: '#436b63', fontSize: 12, fontWeight: '700', marginTop: 3 },
-  exerciseActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  saveButton: { backgroundColor: '#436b63', paddingHorizontal: 10, paddingVertical: 9, borderRadius: 7 },
-  saveText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  addButton: { paddingVertical: 2 },
+  setCard: { gap: spacing.sm, paddingTop: spacing.sm, borderTopColor: colors.borderLight, borderTopWidth: 1 },
+  setFields: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  field: { minWidth: '45%', flexGrow: 1, gap: spacing.xs },
+  fieldLabel: { color: colors.textSecondary, fontSize: 11 },
+  fieldInput: { backgroundColor: colors.surfaceLight, borderColor: colors.border, borderWidth: 1, borderRadius: spacing.sm, padding: spacing.sm, color: colors.textPrimary, fontSize: 14 },
+  actualLabel: { color: colors.brand, fontSize: 12, fontWeight: '700', marginTop: spacing.xs },
+  exerciseActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
+  saveButton: { backgroundColor: colors.brand, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: spacing.sm },
+  saveText: { color: colors.white, fontWeight: '700', fontSize: 12 },
+  addButton: { paddingVertical: spacing.xs },
 });

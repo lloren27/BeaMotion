@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useSession } from '@/services/supabase/session';
+import { colors, borderRadius, spacing } from '@/theme/colors';
 
 export default function SignInScreen() {
   const { signIn } = useSession();
@@ -57,13 +58,13 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#f7f8fa' },
-  card: { width: '100%', maxWidth: 420, alignSelf: 'center', gap: 14 },
-  eyebrow: { color: '#436b63', fontSize: 13, fontWeight: '700', letterSpacing: 2 },
-  title: { color: '#182321', fontSize: 30, fontWeight: '700' },
-  description: { color: '#53615e', fontSize: 16, marginBottom: 8 },
-  input: { backgroundColor: '#fff', borderColor: '#d8dfdc', borderWidth: 1, borderRadius: 10, padding: 14, fontSize: 16 },
-  error: { color: '#a43d3d', fontSize: 14 },
-  button: { backgroundColor: '#436b63', borderRadius: 10, minHeight: 50, alignItems: 'center', justifyContent: 'center' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  container: { flex: 1, justifyContent: 'center', padding: spacing.xxl, backgroundColor: colors.surface },
+  card: { width: '100%', maxWidth: 420, alignSelf: 'center', gap: spacing.md },
+  eyebrow: { color: colors.accentDark, fontSize: 13, fontWeight: '700', letterSpacing: 2 },
+  title: { color: colors.textPrimary, fontSize: 30, fontWeight: '700' },
+  description: { color: colors.textSecondary, fontSize: 16, marginBottom: spacing.md },
+  input: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: borderRadius.md, padding: spacing.md, fontSize: 16 },
+  error: { color: colors.error, fontSize: 14 },
+  button: { backgroundColor: colors.brand, borderRadius: borderRadius.md, minHeight: 50, alignItems: 'center', justifyContent: 'center' },
+  buttonText: { color: colors.white, fontSize: 16, fontWeight: '700' },
 });

@@ -14,3 +14,13 @@ test('duplicar ejercicios no comparte campos editables', () => {
  copy[0].patterns.push('core'); copy[0].name = 'Copia';
  strictEqual(original[0].name, 'Sentadilla'); deepStrictEqual(original[0].patterns, ['empuje inferior']);
 });
+
+test('solo admite ejercicios con al menos un patrón del modelo', async () => {
+ const { isExerciseCompatible } = await import('../src/domain/rules/training-model.ts');
+ strictEqual(isExerciseCompatible('A', ['empuje inferior']), false);
+ strictEqual(isExerciseCompatible('A', []), false);
+ strictEqual(isExerciseCompatible('A', ['core', 'movilidad']), true);
+ strictEqual(isExerciseCompatible('B', ['empuje superior']), false);
+ strictEqual(isExerciseCompatible('B', ['tracción superior']), true);
+ strictEqual(isExerciseCompatible('C', ['empuje inferior']), true);
+});

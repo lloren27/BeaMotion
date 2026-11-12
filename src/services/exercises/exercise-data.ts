@@ -17,6 +17,10 @@ export async function archiveCatalogExercise(id: string): Promise<void> {
   const { error } = await getTrainingSupabase().from('exercise_catalog').update({ archived: true }).eq('id', id).select('id').single();
   if (error) throw new Error(error.message);
 }
+export async function unarchiveCatalogExercise(id: string): Promise<void> {
+  const { error } = await getTrainingSupabase().from('exercise_catalog').update({ archived: false }).eq('id', id).select('id').single();
+  if (error) throw new Error(error.message);
+}
 export async function addCatalogExerciseToSession(sessionId: string, position: number, catalogId: string): Promise<void> {
   const { error } = await getTrainingSupabase().rpc('add_catalog_exercise_to_session', { p_session_id: sessionId, p_position: position, p_catalog_id: catalogId });
   if (error) throw new Error(error.message);

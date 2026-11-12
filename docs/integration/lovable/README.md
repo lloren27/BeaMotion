@@ -96,3 +96,74 @@ semanas posteriores heredan su modelo de la primera mientras no se editen;
 al personalizar una se conserva independiente. «Actualizar desde la semana 1»
 pide confirmación, sustituye el borrador y reactiva la herencia; las versiones
 publicadas no se cambian. Al copiar un mes anterior se usa su primera semana.
+
+## Sprint 3: ejercicios compatibles y distribución semanal
+
+Aplicar **solo en el Supabase propio de entrenamientos**, después de las cuatro
+migraciones anteriores:
+`supabase/migrations/202611110001_model_distribution.sql`.
+La aplicación nueva requiere esta migración; instalar ambas conjuntamente.
+No se ha aplicado automáticamente a ningún proyecto remoto.
+
+El selector de modelos admite ejercicios con al menos un patrón coincidente.
+El guardado también valida ejercicios libres y copias. Los borradores antiguos
+incompatibles se conservan para corregirlos; las versiones históricas no cambian.
+
+Al pulsar **Publicar**, la app consulta todos los bonos activos con pago validado
+del mes, las reservas y las asistencias de Lovable. Incluye clientes cuyo perfil
+no se haya abierto. Si falla una consulta, no publica. Después, una transacción
+en el Supabase propio sincroniza vínculos, publica y copia ejercicios a las
+sesiones elegibles de esa semana y letra. Repetir una publicación sin cambios
+reutiliza la versión y no duplica contenido.
+
+La semana se calcula con la fecha de la reserva en Europe/Madrid. Se conservan
+las secuencias 4=C-C-C-C, 8=A-B-A-B-A-B-A-B y 12=A-B-C-A-B-C-A-B-C-A-B-C.
+Las sesiones sin reserva no reciben una semana inventada. Los vínculos por ID
+conservan la identidad de la reserva; si una reserva nueva o reprogramada rompe
+el orden de la secuencia existente, se excluye el cliente y se muestra un enlace
+para revisarlo. No se reasignan automáticamente sesiones con historial dudoso.
+
+Se preservan sesiones personalizadas, realizadas, con resultados y de fechas
+pasadas. La migración considera personalizado cualquier contenido individual
+preexistente. Una reserva cancelada libera únicamente una copia pendiente,
+intacta y no pasada. Una reprogramación con contenido protegido se informa como
+conflicto. Sin versión publicada para la semana, aparece contenido pendiente.
+
+Al abrir un perfil o pulsar **Actualizar reservas y ejercicios**, se consultan
+reservas nuevas y se completa el contenido desde las versiones publicadas.
+Esta sincronización no es un proceso permanente: ocurre al publicar o actualizar
+el perfil. Si Lovable falla, sigue siendo posible consultar el plan ya guardado,
+pero no se actualizan reservas ni se distribuye contenido.
+
+La lectura de Lovable y la transacción propia pertenecen a dos bases distintas:
+no existe atomicidad entre ambas. Las lecturas caducan a los cinco minutos y una
+lectura anterior no puede sustituir a otra más reciente ya aplicada. Los errores
+de revisión concurrente requieren recargar antes de volver a guardar.
+
+### Prueba manual del sprint 3
+
+1. En un modelo A, comprobar que un ejercicio solo de empuje inferior no se
+   ofrece; un ejercicio con core y otra etiqueta sí se ofrece. Probar también
+   un ejercicio libre sin etiquetas y corregirlo antes de guardar.
+2. Preparar y publicar A/B/C de una semana futura con clientes de prueba cuyos
+   bonos válidos y reservas estén en Lovable. Comprobar la fecha y letra en cada
+   perfil, incluidos perfiles que no se habían abierto.
+3. Verificar instrucciones, material, adaptación, series, repeticiones,
+   duración, descanso y carga. Los campos realizados deben estar vacíos.
+4. Personalizar y guardar un ejercicio de un cliente, registrar una asistencia
+   de otro y republicar un cambio. Ambos conservan su contenido; una copia
+   pendiente intacta recibe el cambio. Cerrar y reabrir para verificarlo.
+5. Crear una reserva después de publicar y actualizar el perfil. Probar una
+   cancelación y un cambio a una semana sin versión publicada. Revisar los
+   mensajes de conflicto si se altera el orden o existe una adaptación.
+6. Abrir dos dispositivos, editar y publicar a la vez: no debe haber duplicados
+   ni pérdida silenciosa de personalizaciones; una pantalla obsoleta avisa.
+
+### Pruebas locales reproducibles
+
+- `node --test tests/*.test.ts`
+- `npx tsc --noEmit`
+- Con PostgreSQL local disponible: `PGHOST=/private/tmp PGPORT=55439 sh scripts/test_training_db.sh`.
+  El script crea una base desechable, prueba cada migración con su suite original,
+  valida datos anteriores al sprint 3 y ejecuta transacciones concurrentes.
+  Elimina únicamente la base que acaba de crear. Nunca usa proyectos remotos.

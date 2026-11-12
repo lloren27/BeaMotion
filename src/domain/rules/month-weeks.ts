@@ -1,4 +1,8 @@
 export type MonthWeek = { number: number; start: string; end: string };
+export function getWeekForDate(month: string, date: string): number | null {
+  return getMonthWeeks(month).find((week) => date >= week.start && date <= week.end)?.number ?? null;
+}
+
 export function getMonthWeeks(month: string): MonthWeek[] {
   if (!/^\d{4}-\d{2}-01$/.test(month)) throw new Error('Mes no válido.');
   const [year, number] = month.split('-').map(Number);

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { searchAllClientPages } from '@/domain/rules/client-search';
 import { SectionMenu } from '@/features/navigation/SectionMenu';
 import { listClients, type ClientListItem } from '@/services/clients-integration/client-data';
+import { colors, borderRadius, spacing } from '@/theme/colors';
 
 export default function ClientsScreen() {
   const [clients, setClients] = useState<ClientListItem[]>([]);
@@ -108,20 +109,20 @@ export default function ClientsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f8fa' },
-  header: { padding: 24, paddingTop: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 },
-  eyebrow: { color: '#436b63', fontSize: 13, fontWeight: '700', letterSpacing: 2 },
-  title: { color: '#182321', fontSize: 30, fontWeight: '700', marginTop: 6 },
-  link: { color: '#436b63', fontSize: 16, fontWeight: '700' },
-  error: { color: '#a43d3d', marginHorizontal: 24, marginBottom: 12 },
-  retry: { marginHorizontal: 24, marginBottom: 12 },
-  search: { marginHorizontal: 24, marginBottom: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccd6d1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
-  list: { paddingHorizontal: 24, paddingBottom: 32 },
-  row: { backgroundColor: '#fff', padding: 18, borderRadius: 10, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name: { color: '#182321', fontSize: 17, fontWeight: '600', flex: 1 },
-  rowDetails: { alignItems: 'flex-end', gap: 4 },
-  bonoActive: { color: '#436b63', fontSize: 14, fontWeight: '700' },
-  secondary: { color: '#53615e', fontSize: 14 },
-  footer: { margin: 20 },
-  more: { padding: 18, alignItems: 'center' },
+  container: { flex: 1, backgroundColor: colors.surface },
+  header: { padding: spacing.xxl, paddingTop: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 },
+  eyebrow: { color: colors.accentDark, fontSize: 13, fontWeight: '700', letterSpacing: 2 },
+  title: { color: colors.textPrimary, fontSize: 30, fontWeight: '700', marginTop: spacing.xs },
+  link: { color: colors.brand, fontSize: 16, fontWeight: '700' },
+  error: { color: colors.error, marginHorizontal: spacing.xxl, marginBottom: spacing.md },
+  retry: { marginHorizontal: spacing.xxl, marginBottom: spacing.md },
+  search: { marginHorizontal: spacing.xxl, marginBottom: spacing.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontSize: 16 },
+  list: { paddingHorizontal: spacing.xxl, paddingBottom: 32 },
+  row: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: borderRadius.md, marginBottom: spacing.sm, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  name: { color: colors.textPrimary, fontSize: 17, fontWeight: '600', flex: 1 },
+  rowDetails: { alignItems: 'flex-end', gap: spacing.xs },
+  bonoActive: { color: colors.brand, fontSize: 14, fontWeight: '700' },
+  secondary: { color: colors.textSecondary, fontSize: 14 },
+  footer: { margin: spacing.xl },
+  more: { padding: spacing.lg, alignItems: 'center' },
 });

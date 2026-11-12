@@ -20,7 +20,12 @@ export function prepareExercise(draft: ExerciseDraft): ExerciseValues {
   return { ...draft, name, description: draft.description.trim(), weight_kg: weight, band_color: draft.band_color.trim(), action_time: draft.action_time.trim(), notes: draft.notes.trim() };
 }
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+const matchesQuery = (e: CatalogExercise, q: string, t: string) => normalize(e.name).includes(q) && (!t || [...e.patterns, ...e.laterality, ...e.positions, ...e.actions, e.band_color, e.action_time, e.notes, e.weight_kg === null ? '' : String(e.weight_kg)].some((value) => normalize(value).includes(t)));
 export function filterExercises<T extends CatalogExercise>(exercises: T[], query: string, tag: string): T[] {
   const q = normalize(query); const t = normalize(tag);
-  return exercises.filter((e) => !e.archived && normalize(e.name).includes(q) && (!t || [...e.patterns, ...e.laterality, ...e.positions, ...e.actions, e.band_color, e.action_time, e.notes, e.weight_kg === null ? '' : String(e.weight_kg)].some((value) => normalize(value).includes(t))));
+  return exercises.filter((e) => !e.archived && matchesQuery(e, q, t));
+}
+export function filterArchivedExercises<T extends CatalogExercise>(exercises: T[], query: string, tag: string): T[] {
+  const q = normalize(query); const t = normalize(tag);
+  return exercises.filter((e) => e.archived && matchesQuery(e, q, t));
 }

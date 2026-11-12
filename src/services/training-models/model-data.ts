@@ -1,3 +1,6 @@
+import { getBookingSnapshot } from '@/services/clients-integration/booking-data';
+import type { Json } from '@/types/training-database';
+import type { BookingExclusion } from '@/domain/rules/booking-assignment';
 import type { ModelCode } from '@/domain/rules/training-plan';
 import type { ModelExercise } from '@/domain/rules/training-model';
 import { getTrainingSupabase } from '@/services/training-supabase/client';
@@ -18,10 +21,15 @@ export async function saveModelDraft(id: string, revision: number, exercises: Mo
   if (error) throw new Error(error.message);
   return data;
 }
-export async function publishModel(id: string, revision: number): Promise<number> {
-  const { data, error } = await getTrainingSupabase().rpc('publish_monthly_model', { p_id: id, p_revision: revision });
+export type DistributionResult = { version?: number; distributed: number; protected: number; pending: number; excluded: BookingExclusion[] };
+export async function publishModel(id: string, revision: number, month: string): Promise<DistributionResult> {
+  const snapshot = await getBookingSnapshot(month);
+  const { data, error } = await getTrainingSupabase().rpc('publish_model_with_bookings', {
+    p_id: id, p_revision: revision, p_clients: snapshot.clients as unknown as Json, p_observed_at: snapshot.observed_at,
+  });
   if (error) throw new Error(error.message);
-  return data;
+  const result = data as unknown as DistributionResult;
+  return { ...result, excluded: [...snapshot.excluded, ...result.excluded] };
 }
 export async function getModelVersions(id: string): Promise<ModelVersion[]> {
   const { data, error } = await getTrainingSupabase().from('monthly_model_versions').select('*').eq('model_id', id).order('version_number', { ascending: false });

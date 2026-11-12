@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getClientOverview, type ClientOverview } from '@/services/clients-integration/client-data';
 import { ClientTrainingSection } from '@/features/training-plans/ClientTrainingSection';
+import { colors, borderRadius, spacing } from '@/theme/colors';
 
 function formatDate(value?: string | null) {
   if (!value) return 'Sin fecha';
@@ -47,7 +48,7 @@ export default function ClientScreen() {
   }
 
   if (error && !overview) return <View style={styles.center}><Text style={styles.error}>{error}</Text></View>;
-  if (!overview) return <View style={styles.center}><ActivityIndicator color="#436b63" /></View>;
+  if (!overview) return <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>;
 
   const { client, active_bonos: bonos, this_week: week, latest_form: form, notes, journal, totals } = overview;
   return (
@@ -116,17 +117,17 @@ export default function ClientScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f8fa' },
-  content: { padding: 24, paddingBottom: 50, gap: 14 },
-  back: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 8 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f7f8fa', padding: 24 },
-  title: { color: '#182321', fontSize: 28, fontWeight: '700' },
-  muted: { color: '#53615e', fontSize: 14 },
-  section: { backgroundColor: '#fff', padding: 18, borderRadius: 10, gap: 10 },
-  heading: { color: '#182321', fontSize: 18, fontWeight: '700' },
-  line: { color: '#33423e', fontSize: 15, lineHeight: 23, borderTopColor: '#e4e9e6', borderTopWidth: 1, paddingTop: 10 },
-  entry: { borderTopColor: '#e4e9e6', borderTopWidth: 1, paddingTop: 10, gap: 6 },
-  entryText: { color: '#33423e', fontSize: 15, lineHeight: 23 },
-  error: { color: '#a43d3d' },
-  link: { color: '#436b63', fontSize: 15, fontWeight: '700', paddingVertical: 8 },
+  container: { flex: 1, backgroundColor: colors.surface },
+  content: { padding: spacing.xxl, paddingBottom: 50, gap: spacing.md },
+  back: { paddingHorizontal: spacing.xxl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surface, padding: spacing.xxl },
+  title: { color: colors.textPrimary, fontSize: 28, fontWeight: '700' },
+  muted: { color: colors.textSecondary, fontSize: 14 },
+  section: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: borderRadius.md, gap: spacing.sm },
+  heading: { color: colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  line: { color: colors.textPrimary, fontSize: 15, lineHeight: 23, borderTopColor: colors.borderLight, borderTopWidth: 1, paddingTop: spacing.sm },
+  entry: { borderTopColor: colors.borderLight, borderTopWidth: 1, paddingTop: spacing.sm, gap: spacing.xs },
+  entryText: { color: colors.textPrimary, fontSize: 15, lineHeight: 23 },
+  error: { color: colors.error },
+  link: { color: colors.brand, fontSize: 15, fontWeight: '700', paddingVertical: spacing.sm },
 });

@@ -2,10 +2,12 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { SectionMenu } from '@/features/navigation/SectionMenu';
-import { CATEGORIES, emptyExercise, filterExercises, prepareExercise, type CatalogExercise, type ExerciseDraft } from '@/domain/exercises/catalog';
-import { archiveCatalogExercise, listExercises, saveCatalogExercise } from '@/services/exercises/exercise-data';
+import { CATEGORIES, emptyExercise, filterArchivedExercises, filterExercises, prepareExercise, type CatalogExercise, type ExerciseDraft } from '@/domain/exercises/catalog';
+import { archiveCatalogExercise, listExercises, saveCatalogExercise, unarchiveCatalogExercise } from '@/services/exercises/exercise-data';
 import { useSession } from '@/services/supabase/session';
+import { colors, borderRadius, spacing } from '@/theme/colors';
 
 type Category = keyof typeof CATEGORIES;
 const labels: Record<Category, string> = { patterns: 'Familia o patrón', laterality: 'Lateralidad', positions: 'Posición', actions: 'Tipo de acción' };
@@ -24,6 +26,7 @@ export function ExerciseLibrary() {
   const [draft, setDraft] = useState<ExerciseDraft | null>(null); const [editingId, setEditingId] = useState<string | undefined>();
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try { setItems(await listExercises()); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo cargar la biblioteca.'); }
@@ -43,7 +46,13 @@ export function ExerciseLibrary() {
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo archivar.'); }
     finally { setBusy(false); }
   }
-  if (trainingStatus !== 'ready') return <SafeAreaView style={styles.page}><View style={styles.content}><View style={styles.header}><Text style={styles.title}>Ejercicios</Text><SectionMenu current="Ejercicios" /></View><Text>Conecta la cuenta de entrenamientos para abrir la biblioteca.</Text></View></SafeAreaView>;
+  async function unarchive(item: CatalogExercise) {
+    setBusy(true); setError(null);
+    try { await unarchiveCatalogExercise(item.id); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo restaurar.'); }
+    finally { setBusy(false); }
+  }
+  if (trainingStatus !== 'ready') return <SafeAreaView style={styles.page}><View style={styles.content}><View style={styles.header}><Text style={styles.title}>Ejercicios</Text><SectionMenu current="Ejercicios" /></View><Text style={{color: colors.textSecondary}}>Conecta la cuenta de entrenamientos para abrir la biblioteca.</Text></View></SafeAreaView>;
   return <SafeAreaView style={styles.page}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <View style={styles.header}><Text style={styles.title}>Biblioteca de ejercicios</Text>{!draft ? <SectionMenu current="Ejercicios" /> : null}</View>
     {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -65,15 +74,30 @@ export function ExerciseLibrary() {
       {filterExercises(items, query, tag).map((item) => <View key={item.id} style={styles.card}>
         <Text style={styles.heading}>{item.name}</Text><Text>{item.description}</Text>
         <Text>{[...item.patterns, ...item.laterality, ...item.positions, ...item.actions].join(' · ')}</Text>
-        <View style={styles.actions}>
-          <Pressable disabled={busy} onPress={() => { setEditingId(item.id); setDraft(toDraft(item)); }}><Text style={styles.link}>Editar</Text></Pressable>
-          <Pressable disabled={busy} onPress={() => { setEditingId(undefined); setDraft({ ...toDraft(item), name: `${item.name} (copia)` }); }}><Text style={styles.link}>Duplicar</Text></Pressable>
-          <Pressable disabled={busy} onPress={() => Alert.alert('Archivar ejercicio', 'Dejará de aparecer en el selector. Las sesiones existentes se conservarán.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Archivar', onPress: () => void archive(item) }])}><Text style={styles.link}>Archivar</Text></Pressable>
+        <View style={styles.iconActions}>
+          <Pressable disabled={busy} accessibilityLabel="Editar ejercicio" onPress={() => { setEditingId(item.id); setDraft(toDraft(item)); }} style={styles.iconBtn}><MaterialCommunityIcons name="pencil" size={22} color={colors.brand} /></Pressable>
+          <Pressable disabled={busy} accessibilityLabel="Duplicar ejercicio" onPress={() => { setEditingId(undefined); setDraft({ ...toDraft(item), name: `${item.name} (copia)` }); }} style={styles.iconBtn}><MaterialCommunityIcons name="content-copy" size={22} color={colors.brand} /></Pressable>
+          <Pressable disabled={busy} accessibilityLabel="Archivar ejercicio" onPress={() => Alert.alert('Archivar ejercicio', 'Dejará de aparecer en el selector. Las sesiones existentes se conservarán.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Archivar', onPress: () => void archive(item) }])} style={styles.iconBtn}><MaterialCommunityIcons name="archive" size={22} color={colors.brand} /></Pressable>
         </View>
       </View>)}
+      {items.some((e) => e.archived) ? <Pressable onPress={() => setShowArchived(!showArchived)} style={styles.archivedToggle}><MaterialCommunityIcons name={showArchived ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} /><Text style={styles.archivedToggleText}>Archivados ({filterArchivedExercises(items, '', '').length})</Text></Pressable> : null}
+      {showArchived ? <View style={styles.archivedSection}>
+        {filterArchivedExercises(items, query, tag).map((item) => <View key={item.id} style={styles.card}>
+          <Text style={styles.heading}>{item.name}</Text><Text>{item.description}</Text>
+          <Text>{[...item.patterns, ...item.laterality, ...item.positions, ...item.actions].join(' · ')}</Text>
+          <View style={styles.iconActions}>
+            <Pressable disabled={busy} accessibilityLabel="Restaurar ejercicio" onPress={() => Alert.alert('Restaurar ejercicio', `${item.name} volverá a aparecer en la biblioteca.`, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Restaurar', onPress: () => void unarchive(item) }])} style={styles.iconBtn}><MaterialCommunityIcons name="archive-outline" size={22} color={colors.success} /></Pressable>
+          </View>
+        </View>)}
+      </View> : null}
     </>}
   </ScrollView></SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#f7f8fa' }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, zIndex: 10 }, content: { padding: 20, gap: 14 }, title: { fontSize: 26, fontWeight: '700', color: '#182321', flexShrink: 1 }, heading: { fontSize: 18, fontWeight: '700' }, label: { fontWeight: '600', marginBottom: 5 }, link: { color: '#436b63', fontSize: 16, fontWeight: '700' }, error: { color: '#a43d3d' }, input: { borderWidth: 1, borderColor: '#ccd6d1', backgroundColor: '#fff', borderRadius: 8, padding: 10 }, card: { backgroundColor: '#fff', borderRadius: 10, padding: 14, gap: 12 }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, chip: { borderWidth: 1, borderColor: '#ccd6d1', borderRadius: 16, padding: 7 }, selected: { backgroundColor: '#cde5d8', borderColor: '#436b63' }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 }, button: { backgroundColor: '#436b63', borderRadius: 8, padding: 12, alignSelf: 'flex-start' }, buttonText: { color: '#fff', fontWeight: '700' },
+  page: { flex: 1, backgroundColor: colors.surface }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, zIndex: 10 }, content: { padding: spacing.xl, gap: spacing.md }, title: { fontSize: 26, fontWeight: '700', color: colors.textPrimary, flexShrink: 1 }, heading: { fontSize: 18, fontWeight: '700', color: colors.textPrimary }, label: { fontWeight: '600', marginBottom: spacing.xs, color: colors.textSecondary }, link: { color: colors.brand, fontSize: 16, fontWeight: '700' }, error: { color: colors.error }, input: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: borderRadius.sm, padding: spacing.sm }, card: { backgroundColor: colors.card, borderRadius: borderRadius.md, padding: spacing.md, gap: spacing.md }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, chip: { borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.xl, padding: spacing.sm }, selected: { backgroundColor: colors.accentLight, borderColor: colors.brand }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg }, button: { backgroundColor: colors.brand, borderRadius: borderRadius.sm, padding: spacing.md, alignSelf: 'flex-start' }, buttonText: { color: colors.white, fontWeight: '700' },
+  iconActions: { flexDirection: 'row', gap: spacing.lg, paddingTop: spacing.xs },
+  iconBtn: { padding: spacing.sm },
+  archivedToggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, alignSelf: 'flex-start' },
+  archivedToggleText: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },
+  archivedSection: { gap: spacing.md },
 });

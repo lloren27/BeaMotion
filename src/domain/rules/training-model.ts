@@ -17,3 +17,7 @@ export function missingPatterns(code: ModelCode, exercises: ModelExercise[]): st
 export function duplicateModelExercises(exercises: ModelExercise[]): ModelExercise[] {
   return exercises.map((exercise) => ({ ...exercise, patterns: [...exercise.patterns] }));
 }
+
+export function isExerciseCompatible(code: ModelCode, patterns: string[]): boolean {
+  return patterns.some((pattern) => MODEL_PATTERNS[code].includes(pattern));
+}

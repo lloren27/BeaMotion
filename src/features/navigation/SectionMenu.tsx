@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSession } from '@/services/supabase/session';
+import { colors, borderRadius, spacing } from '@/theme/colors';
 
 const sections: { label: string; route: Href }[] = [
   { label: 'Clientes', route: '/' as Href },
@@ -59,13 +60,13 @@ export function SectionMenu({ current }: { current: string }) {
 
 const styles = StyleSheet.create({
   container: { position: 'relative', alignItems: 'flex-end', zIndex: 10 },
-  trigger: { borderWidth: 1, borderColor: '#b7cbc2', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
-  triggerText: { color: '#436b63', fontSize: 16, fontWeight: '700' },
-  menu: { position: 'absolute', top: 46, right: 0, minWidth: 170, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d9e3de', borderRadius: 8, padding: 5, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
-  item: { paddingHorizontal: 12, paddingVertical: 12, borderRadius: 5 },
-  selected: { backgroundColor: '#e7f1ec' },
-  signOut: { borderTopWidth: 1, borderColor: '#d9e3de', marginTop: 4, paddingHorizontal: 12, paddingVertical: 12 },
-  error: { color: '#a43d3d', paddingHorizontal: 12, paddingBottom: 8 },
-  itemText: { color: '#182321', fontSize: 16 },
-  selectedText: { color: '#436b63', fontWeight: '700' },
+  trigger: { borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  triggerText: { color: colors.brand, fontSize: 16, fontWeight: '700' },
+  menu: { position: 'absolute', top: 46, right: 0, minWidth: 170, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.sm, padding: spacing.xs, shadowColor: colors.shadow, shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
+  item: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderRadius: spacing.xs },
+  selected: { backgroundColor: colors.muted },
+  signOut: { borderTopWidth: 1, borderColor: colors.borderLight, marginTop: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  error: { color: colors.error, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  itemText: { color: colors.textPrimary, fontSize: 16 },
+  selectedText: { color: colors.brand, fontWeight: '700' },
 });
