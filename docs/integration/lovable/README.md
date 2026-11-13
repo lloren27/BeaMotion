@@ -36,6 +36,34 @@ mediante un `insert` directo en `auth.users`.
 
 Nunca pongas una clave `service_role` en Expo ni en el archivo `.env` de la app.
 
+### Reparar el acceso de una entrenadora en TestFlight
+
+Si puede ver clientas pero aparece «No se pudo iniciar sesión en el proyecto
+de entrenamientos» o «Conecta la cuenta de entrenamientos», revisa la cuenta
+con la que **inicia sesión la entrenadora**, no el correo del perfil abierto.
+Ese mensaje indica que no hay sesión de entrenamientos; añadir un permiso
+por sí solo no corrige una contraseña distinta ni una cuenta inexistente.
+
+1. En el Supabase propio de entrenamientos, abre **Authentication > Users**.
+   Comprueba que existe ese correo y que está confirmado. Si falta, crea la
+   cuenta mediante Auth con el mismo correo y contraseña usados en Lovable.
+   Si ya existe, comprueba que puede iniciar sesión con esas credenciales.
+   No escribas contraseñas en SQL ni las compartas en el chat.
+2. Abre `scripts/grant_training_admin.sql`, sustituye `CORREO_ADMIN` por su
+   correo y ejecútalo en el **SQL Editor del proyecto de entrenamientos**.
+   Valida la cuenta y añade el permiso sin duplicarlo. Este permiso permite
+   gestionar los entrenamientos de todas las clientas: solo para personal
+   administrador de confianza.
+3. Cierra sesión en la app y vuelve a entrar. Comprueba **Ejercicios**,
+   **Modelos mensuales** y **Entrenamientos** dentro de una ficha.
+
+Este procedimiento no requiere una nueva build de TestFlight. El script no
+comprueba contraseñas ni corrige problemas de red; si el mensaje persiste tras
+el nuevo login, hay que revisar el error de Auth del proyecto de entrenamientos.
+
+Prueba local del script (PostgreSQL disponible, nunca contra Supabase remoto):
+`python3 tests/training-admin-access.py`. Crea y elimina su propia base desechable.
+
 Al abrir una ficha, BeaMotion consulta los bonos de Lovable. Para el mes elegido
 solo permite generar un plan si hay exactamente un bono `active` con el pago
 validado y 4, 8 o 12 sesiones. Para el mes actual lo crea automáticamente al
