@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getClientOverview, type ClientOverview } from '@/services/clients-integration/client-data';
+import { parseTrainingDate } from '@/domain/rules/today-training';
 import { ClientTrainingSection } from '@/features/training-plans/ClientTrainingSection';
 import { colors, borderRadius, spacing } from '@/theme/colors';
 
@@ -20,7 +21,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function ClientScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, date } = useLocalSearchParams<{ id: string; date?: string }>();
+  const trainingDate = parseTrainingDate(date);
   const [overview, setOverview] = useState<ClientOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -58,12 +60,14 @@ export default function ClientScreen() {
         onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
         style={styles.back}
       >
-        <Text style={styles.link}>‹ Volver al listado</Text>
+        <Text style={styles.link}>‹ Volver</Text>
       </Pressable>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>{client.nombre}</Text>
         <Text style={styles.muted}>{client.active ? 'Perfil activo' : 'Perfil inactivo'} · {client.age === null ? 'Edad desconocida' : `${client.age} años`}</Text>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {trainingDate ? <ClientTrainingSection key={`${client.id}-${trainingDate}`} clientId={client.id} bonos={overview.bonos} initialDate={trainingDate} /> : null}
 
         <Section title="Formulario inicial">
           {form ? (
@@ -84,7 +88,7 @@ export default function ClientScreen() {
           )) : <Text style={styles.muted}>Sin reservas esta semana.</Text>}
         </Section>
 
-        <ClientTrainingSection clientId={client.id} bonos={overview.bonos} />
+        {!trainingDate ? <ClientTrainingSection clientId={client.id} bonos={overview.bonos} /> : null}
 
         <Section title="Bonos activos">
           {bonos.length ? bonos.map((bono) => (

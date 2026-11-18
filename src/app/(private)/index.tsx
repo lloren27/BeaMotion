@@ -1,108 +1,87 @@
-import { useEffect, useRef, useState } from 'react';
-import { router, type Href } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { router, useFocusEffect, type Href } from 'expo-router';
+import { ActivityIndicator, AppState, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { searchAllClientPages } from '@/domain/rules/client-search';
+import { getMadridDate } from '@/domain/rules/training-plan';
 import { SectionMenu } from '@/features/navigation/SectionMenu';
-import { listClients, type ClientListItem } from '@/services/clients-integration/client-data';
+import { listTodayTrainingClients, type TodayTrainingClient } from '@/services/clients-integration/today-training-data';
 import { colors, borderRadius, spacing } from '@/theme/colors';
 
-export default function ClientsScreen() {
-  const [clients, setClients] = useState<ClientListItem[]>([]);
-  const [nextOffset, setNextOffset] = useState<number | null>(null);
-  const [query, setQuery] = useState('');
+const timeFormat = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
+const dayFormat = new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' });
+
+export default function TodayScreen() {
+  const [date, setDate] = useState(getMadridDate);
+  const [clients, setClients] = useState<TodayTrainingClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestVersion = useRef(0);
-  const loadingMore = useRef(false);
+  const loadedDate = useRef(date);
 
-  async function load(offset: number, term: string, version: number) {
-    if (offset > 0 && loadingMore.current) return;
-    if (offset > 0) loadingMore.current = true;
+  const refresh = useCallback(async () => {
+    const version = ++requestVersion.current;
+    const today = getMadridDate();
+    loadedDate.current = today;
+    setDate(today);
+    setClients([]);
     setLoading(true);
     setError(null);
     try {
-      if (term.trim()) {
-        const matches = await searchAllClientPages((pageOffset) => listClients(50, pageOffset), term, () => version === requestVersion.current);
-        if (version !== requestVersion.current) return;
-        setClients(matches);
-        setNextOffset(null);
-      } else {
-        const page = await listClients(50, offset);
-        if (version !== requestVersion.current) return;
-        setClients((current) => offset === 0 ? page.clients : [...current, ...page.clients]);
-        setNextOffset(page.next_offset);
-      }
+      const result = await listTodayTrainingClients(today);
+      if (version === requestVersion.current) setClients(result);
     } catch (cause) {
-      if (version === requestVersion.current) setError(cause instanceof Error ? cause.message : 'No se pudo cargar la lista.');
+      if (version === requestVersion.current) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los entrenamientos.');
     } finally {
-      if (offset > 0) loadingMore.current = false;
       if (version === requestVersion.current) setLoading(false);
     }
-  }
+  }, []);
 
-  useEffect(() => {
-    const version = ++requestVersion.current;
-    setClients([]);
-    setNextOffset(null);
-    setLoading(true);
-    const timer = setTimeout(() => void load(0, query, version), query.trim() ? 300 : 0);
-    return () => { clearTimeout(timer); ++requestVersion.current; };
-  }, [query]);
-
-  function refresh() {
-    const version = ++requestVersion.current;
-    void load(0, query, version);
-  }
+  useFocusEffect(useCallback(() => {
+    void refresh();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refresh();
+    });
+    const timer = setInterval(() => {
+      if (getMadridDate() !== loadedDate.current) void refresh();
+    }, 1000);
+    return () => { ++requestVersion.current; subscription.remove(); clearInterval(timer); };
+  }, [refresh]));
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <View style={styles.heading}>
           <Text style={styles.eyebrow}>BEAMOTION</Text>
-          <Text style={styles.title}>Clientas</Text>
+          <Text style={styles.title}>Entrenamientos de hoy</Text>
+          <Text style={styles.date}>{dayFormat.format(new Date(`${date}T12:00:00Z`))}</Text>
         </View>
-        <SectionMenu current="Clientes" />
+        <SectionMenu current="Hoy" />
       </View>
-      <TextInput
-        accessibilityLabel="Buscar clientes por nombre o apellidos"
-        autoCapitalize="none"
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-        onChangeText={(value) => { ++requestVersion.current; setQuery(value); }}
-        placeholder="Buscar por nombre o apellidos"
-        style={styles.search}
-        value={query}
-      />
-      {error ? <View><Text style={styles.error}>{error}</Text><Pressable onPress={refresh}><Text style={[styles.link, styles.retry]}>Reintentar</Text></Pressable></View> : null}
+      {!loading && !error ? <Text style={styles.count}>{clients.length} {clients.length === 1 ? 'cliente con reserva' : 'clientes con reserva'}</Text> : null}
+      {error ? <View style={styles.message}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void refresh()}><Text style={styles.link}>Reintentar</Text></Pressable></View> : null}
       <FlatList
         data={clients}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.clientId}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push(`/client/${item.id}` as Href)}
+            accessibilityLabel={`Ver entrenamientos de ${item.name} del ${date}`}
+            onPress={() => router.push({ pathname: '/client/[id]', params: { id: item.clientId, date } } as Href)}
             style={styles.row}
           >
-            <Text style={styles.name}>{item.nombre}</Text>
-            <View style={styles.rowDetails}>
-              <Text style={item.has_active_bono ? styles.bonoActive : styles.secondary}>
-                {item.has_active_bono ? 'Bono vigente' : 'Sin bono vigente'}
-              </Text>
-              <Text style={styles.secondary}>{item.active ? 'Perfil activo' : 'Perfil inactivo'}  ›</Text>
+            <View style={styles.details}>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.times}>{item.startsAt.map((value) => timeFormat.format(new Date(value))).join(' · ')}</Text>
             </View>
+            <Text style={styles.link}>Ver entreno ›</Text>
           </Pressable>
         )}
-        ListEmptyComponent={!loading && !error ? <Text style={styles.secondary}>{query.trim() ? 'No se encontraron clientes.' : 'No hay clientas disponibles.'}</Text> : undefined}
-        ListFooterComponent={
-          loading ? <ActivityIndicator style={styles.footer} /> : nextOffset !== null && clients.length > 0
-            ? <Pressable onPress={() => void load(nextOffset, query, requestVersion.current)} style={styles.more}><Text style={styles.link}>Cargar más</Text></Pressable>
-            : undefined
-        }
-        refreshing={loading && clients.length > 0}
-        onRefresh={refresh}
+        ListEmptyComponent={!loading && !error ? <Text style={styles.secondary}>No hay clientes con reserva para hoy.</Text> : undefined}
+        ListFooterComponent={loading ? <ActivityIndicator color={colors.brand} style={styles.footer} /> : undefined}
+        refreshing={loading}
+        onRefresh={() => void refresh()}
       />
     </SafeAreaView>
   );
@@ -110,19 +89,20 @@ export default function ClientsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
-  header: { padding: spacing.xxl, paddingTop: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 },
+  header: { padding: spacing.xxl, paddingTop: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm, zIndex: 10 },
+  heading: { flex: 1 },
   eyebrow: { color: colors.accentDark, fontSize: 13, fontWeight: '700', letterSpacing: 2 },
-  title: { color: colors.textPrimary, fontSize: 30, fontWeight: '700', marginTop: spacing.xs },
-  link: { color: colors.brand, fontSize: 16, fontWeight: '700' },
-  error: { color: colors.error, marginHorizontal: spacing.xxl, marginBottom: spacing.md },
-  retry: { marginHorizontal: spacing.xxl, marginBottom: spacing.md },
-  search: { marginHorizontal: spacing.xxl, marginBottom: spacing.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontSize: 16 },
+  title: { color: colors.textPrimary, fontSize: 28, fontWeight: '700', marginTop: spacing.xs },
+  date: { color: colors.textSecondary, fontSize: 16, marginTop: spacing.sm },
+  count: { color: colors.textSecondary, marginHorizontal: spacing.xxl, marginBottom: spacing.md },
   list: { paddingHorizontal: spacing.xxl, paddingBottom: 32 },
-  row: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: borderRadius.md, marginBottom: spacing.sm, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name: { color: colors.textPrimary, fontSize: 17, fontWeight: '600', flex: 1 },
-  rowDetails: { alignItems: 'flex-end', gap: spacing.xs },
-  bonoActive: { color: colors.brand, fontSize: 14, fontWeight: '700' },
-  secondary: { color: colors.textSecondary, fontSize: 14 },
+  row: { backgroundColor: colors.card, padding: spacing.lg, borderRadius: borderRadius.md, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
+  details: { flex: 1, minWidth: 140, gap: spacing.sm },
+  name: { color: colors.textPrimary, fontSize: 18, fontWeight: '600' },
+  times: { color: colors.brand, fontSize: 17, fontWeight: '700' },
+  secondary: { color: colors.textSecondary, fontSize: 16 },
+  link: { color: colors.brand, fontSize: 15, fontWeight: '700', paddingVertical: spacing.sm },
+  message: { marginHorizontal: spacing.xxl, marginBottom: spacing.md },
+  error: { color: colors.error },
   footer: { margin: spacing.xl },
-  more: { padding: spacing.lg, alignItems: 'center' },
 });

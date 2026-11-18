@@ -37,9 +37,10 @@ function completedDate(date: string) {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
-export function ClientTrainingSection({ clientId, bonos }: { clientId: string; bonos: ClientBono[] }) {
+export function ClientTrainingSection({ clientId, bonos, initialDate }: { clientId: string; bonos: ClientBono[]; initialDate?: string }) {
   const { trainingStatus } = useSession();
-  const [month, setMonth] = useState(getMadridMonth());
+  const [month, setMonth] = useState(initialDate ? `${initialDate.slice(0, 7)}-01` : getMadridMonth());
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [pickerSessionId, setPickerSessionId] = useState<string | null>(null);
   const [plan, setPlan] = useState<MonthlyTrainingPlan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,12 +150,16 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
   return (
     <View style={styles.section}>
       <Text style={styles.heading}>Entrenamientos</Text>
+      {selectedDate ? <View>
+        <Text style={styles.monthTitle}>{completedDate(selectedDate)}</Text>
+        <Pressable accessibilityRole="button" onPress={() => setSelectedDate(undefined)}><Text style={styles.link}>Ver todo el mes</Text></Pressable>
+      </View> : null}
       <View style={styles.monthNav}>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => setMonth((current) => shiftMonth(current, -1))} style={styles.monthButton}>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => { setSelectedDate(undefined); setMonth((current) => shiftMonth(current, -1)); }} style={styles.monthButton}>
           <Text style={styles.link}>‹</Text>
         </Pressable>
         <Text style={styles.monthTitle}>{monthTitle(month)}</Text>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => setMonth((current) => shiftMonth(current, 1))} style={styles.monthButton}>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => { setSelectedDate(undefined); setMonth((current) => shiftMonth(current, 1)); }} style={styles.monthButton}>
           <Text style={styles.link}>›</Text>
         </Pressable>
       </View>
@@ -167,6 +172,7 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {!loading && !plan && !error ? (
         <>
+          {selectedDate ? <Text style={styles.muted}>Todavía no hay un plan preparado para este día.</Text> : null}
           {activeBonos.length > 1 ? <Text style={styles.error}>Hay varios bonos activos para este mes. Revisa los bonos en Lovable antes de generar el plan.</Text> : null}
           {activeBonos.length === 0 ? <Text style={styles.muted}>No hay un bono activo con el pago validado para este mes.</Text> : null}
           {activeBono && !planSize ? <Text style={styles.muted}>El bono tiene {activeBono.sessions_total} sesiones. Los planes disponibles son de 4, 8 o 12 sesiones.</Text> : null}
@@ -185,7 +191,8 @@ export function ClientTrainingSection({ clientId, bonos }: { clientId: string; b
           {activeBono && plan.session_count !== activeBono.sessions_total ? (
             <Text style={styles.error}>El plan tiene {plan.session_count} sesiones y el bono activo tiene {activeBono.sessions_total}. Revisa esta diferencia antes de continuar.</Text>
           ) : null}
-          {plan.sessions.map((session) => (
+          {selectedDate && !plan.sessions.some((session) => session.scheduled_date === selectedDate) ? <Text style={styles.muted}>No hay un entrenamiento asignado a este día. Puedes consultar el resto del mes.</Text> : null}
+          {plan.sessions.filter((session) => !selectedDate || session.scheduled_date === selectedDate).map((session) => (
             <View key={session.id} style={[styles.session, session.status === 'completed' ? styles.completed : session.status === 'not_completed' ? session.not_completed_reason === 'changed' ? styles.changed : styles.notCompleted : styles.pending]}>
               <View>
                 <Text style={styles.sessionTitle}>Sesión {session.session_number} · Modelo {session.model_code}</Text>

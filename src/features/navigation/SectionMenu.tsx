@@ -5,7 +5,8 @@ import { useSession } from '@/services/supabase/session';
 import { colors, borderRadius, spacing } from '@/theme/colors';
 
 const sections: { label: string; route: Href }[] = [
-  { label: 'Clientes', route: '/' as Href },
+  { label: 'Hoy', route: '/' as Href },
+  { label: 'Clientes', route: '/clients' as Href },
   { label: 'Ejercicios', route: '/exercises' as Href },
   { label: 'Modelos mensuales', route: '/training-models' as Href },
 ];
