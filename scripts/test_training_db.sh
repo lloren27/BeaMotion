@@ -20,5 +20,9 @@ run tests/weekly-model-db.sql
 run tests/helpers/legacy-training.sql
 run supabase/migrations/202611110001_model_distribution.sql
 run tests/model-distribution-db.sql
+run supabase/migrations/202611180001_free_exercise_catalog.sql
+run tests/free-exercise-catalog-db.sql
+run tests/model-distribution-db.sql
 
 PGDATABASE="$training_test_db" python3 tests/model-distribution-concurrency.py
+run tests/backfill-exercise-catalog-db.sql

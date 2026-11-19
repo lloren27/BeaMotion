@@ -187,6 +187,27 @@ de revisión concurrente requieren recargar antes de volver a guardar.
 6. Abrir dos dispositivos, editar y publicar a la vez: no debe haber duplicados
    ni pérdida silenciosa de personalizaciones; una pantalla obsoleta avisa.
 
+### Ejercicios libres y biblioteca
+
+Aplicar `supabase/migrations/202611180001_free_exercise_catalog.sql` después de
+la migración de distribución, únicamente en el Supabase de entrenamientos.
+El guardado del modelo y el alta en la biblioteca se realizan en la misma
+transacción. En sesiones, el nombre provisional «Nuevo ejercicio» se omite;
+la ficha se crea cuando se guarda con un nombre definitivo y queda vinculada.
+No requiere una nueva versión de la app.
+
+Se reutiliza una ficha con el mismo nombre, ignorando mayúsculas y espacios
+repetidos. No se sobrescriben fichas existentes ni se reactivan las archivadas.
+Para variantes que deban tener ficha propia, usar nombres distintos. Los datos
+libres sin campo equivalente (material, progresión, carga, series, etc.) se
+conservan como notas; no se deducen pesos numéricos de texto ambiguo.
+
+`scripts/backfill_week3_exercise_catalog.sql` recupera exclusivamente la semana
+3 de noviembre de 2026 (09–15), combinando borradores y versiones publicadas.
+Prioriza el borrador actual y después la versión más reciente; es reejecutable
+y muestra los nombres incorporados. No cambia modelos, versiones ni sesiones.
+Puede ejecutarse antes o después de la migración automática.
+
 ### Pruebas locales reproducibles
 
 - `node --test tests/*.test.ts`

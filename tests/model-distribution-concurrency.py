@@ -61,3 +61,15 @@ assert sql(f"select name from training_exercises where id='{exercise}'")[-1] == 
 err = finish(start(publish, 'sprint3-obsolete-snapshot'), expected_success=False)
 assert 'cambió' in err or 'actualizó las reservas' in err
 print('Concurrency: simultaneous publication idempotent; concurrent customization preserved; stale operation rejected.')
+
+# Two independent model saves of the same free exercise must create one card.
+model_b = sql("select id from monthly_training_models where period_month='2099-08-01' and week_number=3 and model_code='B'")[-1]
+model_c = sql("select id from monthly_training_models where period_month='2099-08-01' and week_number=3 and model_code='C'")[-1]
+draft = '[{"name":"Libre concurrente","patterns":["core"]}]'
+a = start(f"begin; {CLAIM} select save_monthly_model_draft('{model_b}',0,'{draft}'); select pg_sleep(1); commit;", 'catalog-writer-a')
+wait_for_sleep('catalog-writer-a')
+b = start(f"{CLAIM} select save_monthly_model_draft('{model_c}',0,'{draft}');", 'catalog-writer-b')
+finish(a)
+finish(b)
+assert sql("select count(*) from exercise_catalog where name='Libre concurrente'")[-1] == '1'
+print('Concurrency: simultaneous free exercise saves create one catalog card.')
