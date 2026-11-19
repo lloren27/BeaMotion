@@ -33,6 +33,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "ios:simulator": "open /Applications/Xcode.app/Contents/Applications/DeviceHub.app && expo start --localhost --ios",
+    "deploy": "sh scripts/deploy_testflight.sh",
     "web": "expo start --web"
   },
   "engines": {
