@@ -253,6 +253,8 @@ function ExerciseEditor({
   onSave: () => void;
   onAddSet: () => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   function updateSet(setId: string, field: keyof TrainingSet, value: string) {
     onChange((current) => ({
       ...current, sets: current.sets.map((set) => set.id === setId ? {
@@ -264,53 +266,62 @@ function ExerciseEditor({
 
   return (
     <View style={styles.exercise}>
-      <TextInput
-        accessibilityLabel="Nombre del ejercicio"
-        onChangeText={(name) => onChange((current) => ({ ...current, name }))}
-        placeholder="Nombre del ejercicio"
-        style={styles.input}
-        value={exercise.name}
-      />
-      <TextInput
-        accessibilityLabel="Notas del ejercicio"
-        multiline
-        onChangeText={(notes) => onChange((current) => ({ ...current, notes: notes || null }))}
-        placeholder="Notas del ejercicio"
-        style={[styles.input, styles.multiline]}
-        value={exercise.notes ?? ''}
-      />
-      {exercise.patterns.length ? <Text style={styles.muted}>{exercise.patterns.join(' · ')}</Text> : null}
-      <Field label="Material" value={exercise.material ?? ''} onChange={(material) => onChange((current) => ({ ...current, material: material || null }))} />
-      <Field label="Progresión / regresión" value={exercise.adaptation ?? ''} onChange={(adaptation) => onChange((current) => ({ ...current, adaptation: adaptation || null }))} />
-      {exercise.sets.map((set) => (
-        <View key={set.id} style={styles.setCard}>
-          <View style={styles.setFields}>
-            <Field label="Series" value={set.planned_series ?? set.series_count?.toString() ?? ''} onChange={(value) => updateSet(set.id, 'planned_series', value)} />
-            <Field label="Duración" value={set.duration ?? ''} onChange={(value) => updateSet(set.id, 'duration', value)} />
-            <Field label="Repeticiones" value={set.repetitions ?? ''} onChange={(value) => updateSet(set.id, 'repetitions', value)} />
-            <Field label="Descanso" value={set.rest ?? ''} onChange={(value) => updateSet(set.id, 'rest', value)} />
-            <Field label="Peso / carga" value={set.load ?? ''} onChange={(value) => updateSet(set.id, 'load', value)} />
-          </View>
-          <Text style={styles.actualLabel}>Realizado (si fue distinto)</Text>
-          <View style={styles.setFields}>
-            <Field label="Series reales" value={set.actual_series_count ?? ''} onChange={(value) => updateSet(set.id, 'actual_series_count', value)} />
-            <Field label="Repeticiones reales" value={set.actual_repetitions ?? ''} onChange={(value) => updateSet(set.id, 'actual_repetitions', value)} />
-            <Field label="Descanso real" value={set.actual_rest ?? ''} onChange={(value) => updateSet(set.id, 'actual_rest', value)} />
-            <Field label="Peso / carga real" value={set.actual_load ?? ''} onChange={(value) => updateSet(set.id, 'actual_load', value)} />
-          </View>
+      <Pressable accessibilityRole="button" onPress={() => setCollapsed((c) => !c)}>
+        <Text style={[styles.exerciseName, { textDecorationLine: collapsed ? 'line-through' : 'none' }]}>
+          {collapsed ? '▶' : '▼'} {exercise.name || 'Nombre del ejercicio'}
+        </Text>
+      </Pressable>
+      {!collapsed && (
+        <>
           <TextInput
-            accessibilityLabel="Aclaraciones de ejecución"
-            onChangeText={(value) => updateSet(set.id, 'actual_notes', value)}
-            placeholder="Aclaraciones de ejecución"
+            accessibilityLabel="Nombre del ejercicio"
+            onChangeText={(name) => onChange((current) => ({ ...current, name }))}
+            placeholder="Nombre del ejercicio"
             style={styles.input}
-            value={set.actual_notes ?? ''}
+            value={exercise.name}
           />
-        </View>
-      ))}
-      <View style={styles.exerciseActions}>
-        <Pressable disabled={busy} onPress={onAddSet}><Text style={styles.link}>+ Añadir línea de series</Text></Pressable>
-        <Pressable disabled={busy} onPress={onSave} style={styles.saveButton}><Text style={styles.saveText}>Guardar</Text></Pressable>
-      </View>
+          <TextInput
+            accessibilityLabel="Notas del ejercicio"
+            multiline
+            onChangeText={(notes) => onChange((current) => ({ ...current, notes: notes || null }))}
+            placeholder="Notas del ejercicio"
+            style={[styles.input, styles.multiline]}
+            value={exercise.notes ?? ''}
+          />
+          {exercise.patterns.length ? <Text style={styles.muted}>{exercise.patterns.join(' · ')}</Text> : null}
+          <Field label="Material" value={exercise.material ?? ''} onChange={(material) => onChange((current) => ({ ...current, material: material || null }))} />
+          <Field label="Progresión / regresión" value={exercise.adaptation ?? ''} onChange={(adaptation) => onChange((current) => ({ ...current, adaptation: adaptation || null }))} />
+          {exercise.sets.map((set) => (
+            <View key={set.id} style={styles.setCard}>
+              <View style={styles.setFields}>
+                <Field label="Series" value={set.planned_series ?? set.series_count?.toString() ?? ''} onChange={(value) => updateSet(set.id, 'planned_series', value)} />
+                <Field label="Duración" value={set.duration ?? ''} onChange={(value) => updateSet(set.id, 'duration', value)} />
+                <Field label="Repeticiones" value={set.repetitions ?? ''} onChange={(value) => updateSet(set.id, 'repetitions', value)} />
+                <Field label="Descanso" value={set.rest ?? ''} onChange={(value) => updateSet(set.id, 'rest', value)} />
+                <Field label="Peso / carga" value={set.load ?? ''} onChange={(value) => updateSet(set.id, 'load', value)} />
+              </View>
+              <Text style={styles.actualLabel}>Realizado (si fue distinto)</Text>
+              <View style={styles.setFields}>
+                <Field label="Series reales" value={set.actual_series_count ?? ''} onChange={(value) => updateSet(set.id, 'actual_series_count', value)} />
+                <Field label="Repeticiones reales" value={set.actual_repetitions ?? ''} onChange={(value) => updateSet(set.id, 'actual_repetitions', value)} />
+                <Field label="Descanso real" value={set.actual_rest ?? ''} onChange={(value) => updateSet(set.id, 'actual_rest', value)} />
+                <Field label="Peso / carga real" value={set.actual_load ?? ''} onChange={(value) => updateSet(set.id, 'actual_load', value)} />
+              </View>
+              <TextInput
+                accessibilityLabel="Aclaraciones de ejecución"
+                onChangeText={(value) => updateSet(set.id, 'actual_notes', value)}
+                placeholder="Aclaraciones de ejecución"
+                style={styles.input}
+                value={set.actual_notes ?? ''}
+              />
+            </View>
+          ))}
+          <View style={styles.exerciseActions}>
+            <Pressable disabled={busy} onPress={onAddSet}><Text style={styles.link}>+ Añadir línea de series</Text></Pressable>
+            <Pressable disabled={busy} onPress={onSave} style={styles.saveButton}><Text style={styles.saveText}>Guardar</Text></Pressable>
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -346,6 +357,7 @@ const styles = StyleSheet.create({
   statusActions: { flexDirection: 'row', alignSelf: 'flex-start', gap: spacing.sm },
   statusButton: { backgroundColor: colors.card, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: spacing.sm },
   exercise: { backgroundColor: colors.card, borderRadius: borderRadius.sm, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.sm, gap: spacing.sm },
+  exerciseName: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   input: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: spacing.sm, padding: spacing.sm, color: colors.textPrimary, fontSize: 14 },
   multiline: { minHeight: 60, textAlignVertical: 'top' },
   setCard: { gap: spacing.sm, paddingTop: spacing.sm, borderTopColor: colors.borderLight, borderTopWidth: 1 },
